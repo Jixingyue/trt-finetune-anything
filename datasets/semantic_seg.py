@@ -3,8 +3,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VOCSegmentation, VisionDataset
 import numpy as np
-
-
+import cv2
+import json
+import torch
 class BaseSemanticDataset(VisionDataset):
     """
     if you want to customize a new dataset to train the segmentation task,
@@ -147,3 +148,49 @@ class TorchVOCSegmentation(VOCSegmentation):
 
         target = np.array(target)
         return img, target
+
+class LettuceSegDataset(Dataset):
+    def __init__(self, 
+                    file_list, 
+                    transform=None, 
+                    image_suffix=".JPG", 
+                    label_suffix=".json",
+                    width=None, 
+                    height=None):
+        super().__init__()
+        self.file_list = file_list
+        self.transform = transform
+        self.image_suffix = image_suffix
+        self.label_suffix = label_suffix
+        self.width = width
+        self.height = height
+        self.class_names = ['background', 'lettuce']
+    
+    def __len__(self):
+        return len(self.file_list)
+    
+    def __getitem__(self, idx):
+        image_path = self.file_list[idx]
+        json_path = image_path.replace(self.image_suffix, self.label_suffix)
+        
+        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        h, w, _ = image.shape
+        mask = np.zeros((h, w), dtype=np.uint8)
+        
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        for shape in data.get("shapes", []):
+            label_name = shape["label"]
+            polygon = np.array(shape["points"], dtype=np.int32).reshape((-1,1,2))
+            if label_name == "lettuce":
+                cv2.fillPoly(mask, [polygon], 1)
+        
+        if self.width is not None and self.height is not None:
+            image = cv2.resize(image, (self.width, self.height))
+            mask  = cv2.resize(mask,  (self.width, self.height), interpolation=cv2.INTER_NEAREST)
+        
+        image = torch.from_numpy(image.transpose(2, 0, 1)).float()
+        mask  = torch.from_numpy(mask[np.newaxis, ...]).long()
+        return image, mask, image_path

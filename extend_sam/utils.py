@@ -98,7 +98,7 @@ def print_and_save_log(message, path):
 
 class mIoUOnline:
     def __init__(self, class_names):
-        self.class_names = ['background'] + class_names
+        self.class_names =  class_names
         self.class_num = len(self.class_names)
 
         self.clear()

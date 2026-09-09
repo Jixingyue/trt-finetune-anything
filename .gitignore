@@ -1,0 +1,13 @@
+__pycache__/
+experiment/
+outputs/
+result/
+result_onnx/
+result_trt/
+test_data/
+
+*.pth 
+*.onnx  
+*.png
+
+

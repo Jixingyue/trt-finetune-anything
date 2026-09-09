@@ -4,9 +4,25 @@
 import argparse
 from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
-from datasets import get_dataset
+from datasets import get_dataset,get_lettuce_dataset
 from losses import get_losses
 from extend_sam import get_model, get_optimizer, get_scheduler, get_opt_pamams, get_runner
+import random
+import numpy as np
+import torch
+def set_seed(seed: int):
+    """
+    固定训练过程中的随机种子，保证结果相对可复现。
+    """
+    random.seed(seed)                 # Python 内置的 random
+    np.random.seed(seed)              # NumPy
+    torch.manual_seed(seed)           # PyTorch CPU
+    torch.cuda.manual_seed(seed)      # PyTorch当前 GPU
+    torch.cuda.manual_seed_all(seed)  # PyTorch所有 GPU
+    
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+set_seed(42)
 
 supported_tasks = ['detection', 'semantic_seg', 'instance_seg']
 parser = argparse.ArgumentParser()
@@ -26,10 +42,9 @@ if __name__ == '__main__':
     val_cfg = config.val
     test_cfg = config.test
 
-    train_dataset = get_dataset(train_cfg.dataset)
+    train_dataset,val_dataset = get_lettuce_dataset()
     train_loader = DataLoader(train_dataset, batch_size=train_cfg.bs, shuffle=True, num_workers=train_cfg.num_workers,
                               drop_last=train_cfg.drop_last)
-    val_dataset = get_dataset(val_cfg.dataset)
     val_loader = DataLoader(val_dataset, batch_size=val_cfg.bs, shuffle=False, num_workers=val_cfg.num_workers,
                             drop_last=val_cfg.drop_last)
     losses = get_losses(losses=train_cfg.losses)
@@ -45,3 +60,4 @@ if __name__ == '__main__':
     runner.train(train_cfg)
     if test_cfg.need_test:
         runner.test(test_cfg)
+        
